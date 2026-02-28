@@ -15,6 +15,8 @@ def find_markscheme_zones(name: str) -> dict:
     Handles tight groupings (like MCQs) by examining individual lines rather than text blocks.
     """
 
+    if name.startswith("2019"): return find_old_markscheme_zones(name)
+
     doc = fitz.open(f"papers/{name}_markscheme.pdf")
     q_pattern = re.compile(r'^Q\s*(\d+)', re.IGNORECASE)
     
@@ -89,6 +91,9 @@ def save_markscheme_questions(name: str, zones: dict, output_dir: str = "output"
     Takes the zones dictionary and the original PDF, 
     then saves each question (including all its split parts) as an individual PDF.
     """
+
+    count = 0
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
@@ -131,5 +136,82 @@ def save_markscheme_questions(name: str, zones: dict, output_dir: str = "output"
         output_filename = os.path.join(output_dir, f"{name}Q{q_num}_m.pdf")
         new_doc.save(output_filename)
         new_doc.close()
+
+        count += 1
         
     doc.close()
+    return count
+
+
+def find_old_markscheme_zones(name: str) -> dict:
+    """
+    Scans an older mark scheme PDF line-by-line to identify all vertical zones for each question.
+    Handles questions on their own line (e.g., "11") AND multi-part questions 
+    where the text starts on the same line (e.g., "19 (i) The first ratio...").
+    """
+    doc = fitz.open(f"papers/{name}_markscheme.pdf")
+    
+    # Matches a line starting with a 1-2 digit number, followed by EITHER:
+    # 1. The end of the line (handles standalone numbers)
+    # 2. An optional opening bracket, letters/numbers, and a mandatory closing bracket ')' (handles "19 (i) text...")
+    q_pattern = re.compile(r'^(\d{1,2})(?:\s*$|\s*\(?[a-z0-9]+\))', re.IGNORECASE)
+    
+    markers = []
+    
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        page_data = page.get_text("dict")
+        
+        for block in page_data.get("blocks", []):
+            if "lines" not in block: 
+                continue
+            
+            for line in block["lines"]:
+                # Reconstruct the line text from its spans
+                line_text = "".join([span["text"] for span in line["spans"]]).strip()
+                match = q_pattern.match(line_text)
+                
+                if match:
+                    q_num = int(match.group(1))
+                    y0 = line["bbox"][1] 
+                    
+                    markers.append({
+                        'q_num': q_num,
+                        'page_num': page_num,
+                        'y0': y0
+                    })
+
+    # Sort markers by page number, then by y0 coordinate to ensure top-to-bottom logical flow
+    markers.sort(key=lambda x: (x['page_num'], x['y0']))
+                
+    # Convert markers into start/end zones
+    zones = {}
+    for i in range(len(markers)):
+        current_marker = markers[i]
+        q_num = current_marker['q_num']
+        
+        start_page = current_marker['page_num']
+        start_y = max(0, current_marker['y0'] - 5)
+        
+        # The zone ends where the next marker begins, or at the end of the document
+        if i + 1 < len(markers):
+            next_marker = markers[i+1]
+            end_page = next_marker['page_num']
+            end_y = max(0, next_marker['y0'] - 5)
+        else:
+            end_page = len(doc) - 1
+            end_y = doc[end_page].rect.height
+            
+        zone_info = {
+            'start_page': start_page,
+            'start_y': start_y,
+            'end_page': end_page,
+            'end_y': end_y
+        }
+        
+        if q_num not in zones:
+            zones[q_num] = []
+        zones[q_num].append(zone_info)
+        
+    doc.close()
+    return zones

@@ -16,7 +16,7 @@ paper_names = [
     "201909",
     "202004",
     "202009",
-    "201004",
+    "202104",
     "202109",
     "202204",
     "202209",
@@ -30,14 +30,20 @@ paper_names = [
 
 def main():
 
+    total_generated = 0
+
     for name in paper_names:
 
         # Coordinate based cropping
         zones = find_zones(name)
-        save_questions(name, zones)
+        num_generated = save_questions(name, zones)
+        total_generated += num_generated
 
         m_zones = find_markscheme_zones(name)
-        save_markscheme_questions(name, m_zones, OUTPUT_DIR)
+        num_generated = save_markscheme_questions(name, m_zones, OUTPUT_DIR)
+        total_generated += num_generated
+
+    print(f"Completed. {total_generated} questions and markschemes generated.")
 
 
 def find_zones(name: str):
@@ -186,6 +192,8 @@ def save_questions(name: str, zones):
     then saves each question as an individual PDF.
     """
 
+    count = 0
+
     # Open the source document
     doc = fitz.open(f"papers/{name}_exam.pdf")
 
@@ -224,7 +232,10 @@ def save_questions(name: str, zones):
         new_doc.save(output_path)
         new_doc.close()
 
+        count += 1
+
     doc.close()
+    return count
 
 
 if __name__ == "__main__":
