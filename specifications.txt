@@ -1,0 +1,14 @@
+I have an csv with three columns:
+1. exam name + question
+2. question topic
+3. week.
+
+I have respective PDF files for exam paper and mark scheme which can be retrieved with exam name.
+I need to scan the PDF to find the question and answer in each the exam paper and exam mark scheme PDFs.
+
+The questions can be identified by starting with a number, e.g. "1" for question 1, and ending with a points within brackets, e.g. [2] if the question is worth two points.
+The answers can be identified by starting with a number, e.g. "1" for question 1, and ending with the next question number, e.g. ending "2" for question 1.
+
+I want to make a program that can let me practice questions ordered by week.
+It retrieves exam paper and mark scheme and extracts just the question from the PDF to show me.
+I can view the answer by toggling a button.
