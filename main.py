@@ -5,6 +5,7 @@ import json
 import re
 import os
 
+from check_gaps import check_and_extend_gaps
 
 df = pd.read_csv("problems.csv")
 row_length: int = len(df)
@@ -54,70 +55,123 @@ def find_zones(name: str):
     for page_num, page in enumerate(data):
             
         for block in page.get("blocks", []):
-            if "lines" in block:
-                for line in block["lines"]:
-                    for span in line["spans"]:
-                        
-                        span_text = span["text"].strip()
-                        span_flags = span["flags"]
+            if "lines" not in block: continue
+            for line in block["lines"]:
+                for span in line["spans"]:
+                    
+                    span_text = span["text"].strip()
+                    span_flags = span["flags"]
 
-                        if span_text.isdigit() and (span_flags & 16):
-                            
-                            question_no = int(span_text)
-                            anchors[question_no] = {
-                                "page_num": page_num,
-                                "start": span["bbox"]
-                            }
+                    if span_text.isdigit() and (span_flags & 16):
+                        
+                        question_no = int(span_text)
+                        anchors[question_no] = {
+                            "page_num": page_num,
+                            "start": span["bbox"]
+                        }
 
     # Find crop zones
     zones = {}
 
     for question_no, info in anchors.items():
+        if question_no <= 18:  # short-form question
+            find_question_zone(doc, question_no, info, anchors, zones)
+        else: # long-form question
+            find_long_question_zone(doc, question_no, info, anchors, zones)
 
-        page_num = info["page_num"]
-        y_start = info["start"][1]
-        
-        # Initial search area
-        curr_page_num = page_num
-        current_page = doc[curr_page_num]
-        search_rect = fitz.Rect(0, y_start, current_page.rect.width, current_page.rect.height)
-        
-        # Define ending
-        found_end = False
-
-        while not found_end:
-
-            marks = current_page.search_for("[", clip=search_rect)
-
-            if marks:  # Question end found
-                first_mark = marks[0]
-                anchors[question_no]["end"] = first_mark
-                
-                zones[question_no] = {
-                    "page_num": page_num,
-                    "y0": y_start - 10,
-                    "end_page_num": curr_page_num,
-                    "y1": first_mark.y1 + 10
-                }
-
-                found_end = True  # End search
-
-            else:
-
-                # Increment current page number
-                curr_page_num += 1
-
-                if curr_page_num >= len(doc):
-                    found_end = True
-                else:
-
-                    # Update search area to new search area
-                    current_page = doc[curr_page_num]
-                    search_rect = fitz.Rect(0, 0, current_page.rect.width, current_page.rect.height)
+    check_and_extend_gaps(doc, zones, anchors)
 
     doc.close()
 
     return zones
+
+
+def find_question_zone(doc, question_no, info, anchors, zones):
+
+    page_num = info["page_num"]
+    y_start = info["start"][1]
+
+    # Initial search area
+    curr_page_num = page_num
+    current_page = doc[curr_page_num]
+    search_rect = fitz.Rect(0, y_start, current_page.rect.width, current_page.rect.height)
+
+    # Define ending
+    found_end = False
+
+    while not found_end:
+
+        marks = current_page.search_for("[", clip=search_rect)
+
+        if marks:  # Question end found
+            first_mark = marks[0]
+            anchors[question_no]["end"] = first_mark
+            
+            zones[question_no] = {
+                "page_num": page_num,
+                "y0": y_start - 10,
+                "end_page_num": curr_page_num,
+                "y1": first_mark.y1 + 10
+            }
+
+            found_end = True  # End search
+
+        else:
+
+            # Increment current page number
+            curr_page_num += 1
+
+            if curr_page_num >= len(doc):
+                found_end = True
+            else:
+
+                # Update search area to new search area
+                current_page = doc[curr_page_num]
+                search_rect = fitz.Rect(0, 0, current_page.rect.width, current_page.rect.height)
+
+
+def find_long_question_zone(doc, question_no, info, anchors, zones):
+
+    page_num = info["page_num"]
+    y_start = info["start"][1]
+
+    # Initial search area
+    curr_page_num = page_num
+    current_page = doc[curr_page_num]
+    search_rect = fitz.Rect(0, y_start, current_page.rect.width, current_page.rect.height)
+
+    # Define ending
+    found_end = False
+
+    while not found_end:
+
+        marks = current_page.search_for("[Total", clip=search_rect)
+
+        if marks:  # Question end found
+            first_mark = marks[0]
+            anchors[question_no]["end"] = first_mark
+            
+            zones[question_no] = {
+                "page_num": page_num,
+                "y0": y_start - 10,
+                "end_page_num": curr_page_num,
+                "y1": first_mark.y1 + 10
+            }
+
+            found_end = True  # End search
+
+        else:
+
+            # Increment current page number
+            curr_page_num += 1
+
+            if curr_page_num >= len(doc):
+                found_end = True
+            else:
+
+                # Update search area to new search area
+                current_page = doc[curr_page_num]
+                search_rect = fitz.Rect(0, 0, current_page.rect.width, current_page.rect.height)
 
 
 def save_questions(name: str, zones):
