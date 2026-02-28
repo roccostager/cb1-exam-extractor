@@ -1,11 +1,10 @@
 # Importing Libraries
 import pandas as pd
 import fitz
-import json
-import re
 import os
 
 from check_gaps import check_and_extend_gaps
+from markscheme import find_markscheme_zones, save_markscheme_questions
 
 df = pd.read_csv("problems.csv")
 row_length: int = len(df)
@@ -27,8 +26,10 @@ def main():
 
         # Coordinate based cropping
         zones = find_zones(name)
-        print(zones)
         save_questions(name, zones)
+
+        m_zones = find_markscheme_zones(name)
+        save_markscheme_questions(name, m_zones, OUTPUT_DIR)
 
         if i + 1 >= CAP:  # Safety
             break
@@ -213,7 +214,7 @@ def save_questions(name: str, zones):
             page.set_cropbox(fitz.Rect(x0, y0, x1, y1))
 
         # 4. Save the finished question PDF
-        output_filename = f"{name}Q{question_no}.pdf"
+        output_filename = f"{name}Q{question_no}_q.pdf"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         new_doc.save(output_path)
         new_doc.close()
