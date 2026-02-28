@@ -1,28 +1,36 @@
-# Importing Libraries
-import pandas as pd
+# Importing Libraries=
 import fitz
 import os
 
 from check_gaps import check_and_extend_gaps
 from markscheme import find_markscheme_zones, save_markscheme_questions
 
-df = pd.read_csv("problems.csv")
-row_length: int = len(df)
-
 
 # Config
-CAP = 1  # Safety mechanism
 BOLD_FLAG = 20
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "docs"
+
+# papers
+paper_names = [
+    "201904",
+    "201909",
+    "202004",
+    "202009",
+    "201004",
+    "202109",
+    "202204",
+    "202209",
+    "202304",
+    "202309",
+    "202404",
+    "202409",
+    "202504",
+]
 
 
 def main():
 
-    for i in range(row_length):
-
-        question: str = df["Question"][i]
-        name = question.split("Q")[0]
-        question_number = question.split("Q")[1]
+    for name in paper_names:
 
         # Coordinate based cropping
         zones = find_zones(name)
@@ -30,9 +38,6 @@ def main():
 
         m_zones = find_markscheme_zones(name)
         save_markscheme_questions(name, m_zones, OUTPUT_DIR)
-
-        if i + 1 >= CAP:  # Safety
-            break
 
 
 def find_zones(name: str):
