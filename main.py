@@ -25,7 +25,9 @@ def main():
         question_number = question.split("Q")[1]
 
         # Coordinate based cropping
-        find_zones(name, question_number)
+        zones = find_zones(name)
+        print(zones)
+        save_questions(name, zones)
 
         if i + 1 >= CAP:  # Safety
             break
@@ -85,7 +87,7 @@ def find_zones(name: str):
 
         while not found_end:
 
-            marks = current_page.search_for(re.compile(r"\[\d+\]"), clip=search_rect)
+            marks = current_page.search_for("[", clip=search_rect)
 
             if marks:  # Question end found
                 first_mark = marks[0]
@@ -112,6 +114,57 @@ def find_zones(name: str):
                     # Update search area to new search area
                     current_page = doc[curr_page_num]
                     search_rect = fitz.Rect(0, 0, current_page.rect.width, current_page.rect.height)
+
+    doc.close()
+
+    return zones
+
+
+def save_questions(name: str, zones):
+    """
+    Takes the zones dictionary and the original PDF, 
+    then saves each question as an individual PDF.
+    """
+
+    # Open the source document
+    doc = fitz.open(f"papers/{name}_exam.pdf")
+
+    for question_no, zone_data in zones.items():
+        # 1. Start a new PDF for this specific question
+        new_doc = fitz.open()
+        
+        start_page = zone_data["page_num"]
+        end_page = zone_data["end_page_num"]
+
+        for current_page_num in range(start_page, end_page + 1):
+
+            new_doc.insert_pdf(doc, from_page=current_page_num, to_page=current_page_num)
+            page = new_doc[-1]
+            
+            # Find crop box
+            x0 = 0
+            x1 = page.rect.width
+            
+            # Y-coordinates depend on whether we are at the start, middle, or end
+            if current_page_num == start_page and current_page_num == end_page:  # Singe-page question
+                y0, y1 = zone_data["y0"], zone_data["y1"]
+            elif current_page_num == start_page:  # first page, multi-page question
+                y0, y1 = zone_data["y0"], page.rect.height
+            elif current_page_num == end_page:  # last page, multi-page question
+                y0, y1 = 0, zone_data["y1"]
+            else:  # middle page, multi-page question
+                y0, y1 = 0, page.rect.height
+
+            # Apply the crop
+            page.set_cropbox(fitz.Rect(x0, y0, x1, y1))
+
+        # 4. Save the finished question PDF
+        output_filename = f"{name}Q{question_no}.pdf"
+        output_path = os.path.join(OUTPUT_DIR, output_filename)
+        new_doc.save(output_path)
+        new_doc.close()
+
+    doc.close()
 
 
 if __name__ == "__main__":
