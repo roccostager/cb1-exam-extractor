@@ -29,8 +29,6 @@ def process_pdfs():
 
     for filename in os.listdir(INPUT_DIR):
         if filename.lower().endswith(".pdf"):
-            
-            print(filename)
 
             name = filename.split(".")[0]
             pdf_to_image(name)
