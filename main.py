@@ -8,7 +8,7 @@ from markscheme import find_markscheme_zones, save_markscheme_questions
 
 # Config
 BOLD_FLAG = 20
-OUTPUT_DIR = "docs"
+OUTPUT_DIR = "docs-pdf"
 
 # papers
 paper_names = [
